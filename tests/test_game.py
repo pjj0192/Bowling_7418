@@ -37,3 +37,14 @@ def test_perfect_game_scores_three_hundred():
         game.roll(10)
 
     assert game.score() == 300
+
+
+def test_spare_in_tenth_frame_gets_one_bonus_roll():
+    game = Game()
+    for _ in range(18):
+        game.roll(0)
+    game.roll(5)
+    game.roll(5)  # spare in 10th frame
+    game.roll(5)  # bonus roll
+
+    assert game.score() == 15
