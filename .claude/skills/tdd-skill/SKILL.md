@@ -367,5 +367,4 @@ When adding mocks or test utilities, read [testing-anti-patterns.md](testing-ant
 Production code → test exists and failed first
 Otherwise → not TDD
 ```
-
 No exceptions without your human partner's permission.
