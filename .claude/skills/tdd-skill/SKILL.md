@@ -1,15 +1,15 @@
 ---
 name: tdd-skill
-description: Use when implementing any feature or bugfix, before writing implementation code
+description: Use when implementing any feature or bugfix, before writing implementation code. Cycle is RED-GREEN-REVIEW — a human must review and approve GREEN code before it is committed.
 ---
 
 # Test-Driven Development (TDD)
 
 ## Overview
 
-Write the test first. Watch it fail. Write minimal code to pass.
+Write the test first. Watch it fail. Write minimal code to pass. Stop and get human review before committing.
 
-**Core principle:** If you didn't watch the test fail, you don't know if it tests the right thing.
+**Core principle:** If you didn't watch the test fail, you don't know if it tests the right thing. If a human didn't review the passing code, it doesn't get committed.
 
 **Violating the letter of the rules is violating the spirit of the rules.**
 
@@ -44,7 +44,7 @@ Write code before the test? Delete it. Start over.
 
 Implement fresh from tests. Period.
 
-## Red-Green-Refactor
+## Red-Green-Review
 
 ```dot
 digraph tdd_cycle {
@@ -53,20 +53,24 @@ digraph tdd_cycle {
     verify_red [label="Verify fails\ncorrectly", shape=diamond];
     green [label="GREEN\nMinimal code", shape=box, style=filled, fillcolor="#ccffcc"];
     verify_green [label="Verify passes\nAll green", shape=diamond];
-    refactor [label="REFACTOR\nClean up", shape=box, style=filled, fillcolor="#ccccff"];
+    review [label="REVIEW\nHuman reviews\nGREEN code", shape=box, style=filled, fillcolor="#ccccff"];
+    commit [label="COMMIT\nHuman approved", shape=box, style=filled, fillcolor="#ffe4b3"];
     next [label="Next", shape=ellipse];
 
     red -> verify_red;
     verify_red -> green [label="yes"];
     verify_red -> red [label="wrong\nfailure"];
     green -> verify_green;
-    verify_green -> refactor [label="yes"];
+    verify_green -> review [label="yes"];
     verify_green -> green [label="no"];
-    refactor -> verify_green [label="stay\ngreen"];
-    verify_green -> next;
+    review -> green [label="changes\nrequested"];
+    review -> commit [label="approved"];
+    commit -> next;
     next -> red;
 }
 ```
+
+This is a **human-in-the-loop** cycle. The agent never moves past GREEN on its own — it stops, shows the human the code, and waits. Nothing gets committed without explicit human approval. There is no autopilot REFACTOR step; any cleanup happens because the human asked for it during REVIEW, and re-enters the GREEN step to be re-verified.
 
 ### RED - Write Failing Test
 
@@ -182,18 +186,48 @@ Confirm:
 
 **Other tests fail?** Fix now.
 
-### REFACTOR - Clean Up
+### REVIEW - Human Reviews Before Commit
 
-After green only:
-- Remove duplication
-- Improve names
-- Extract helpers
+**MANDATORY. Never skip. Never commit unilaterally.**
 
-Keep tests green. Don't add behavior.
+After GREEN is verified:
+- Stop. Do not refactor, do not start the next test, do not commit.
+- Show the human partner the new test and the new/changed code (e.g. via diff).
+- Explain briefly what it does and why it's minimal.
+- Wait for explicit approval.
+
+**Human requests changes** (rename, extract a helper, simplify, actually refactor)?
+- Apply them.
+- Re-run the test suite — must still be green.
+- Go back to REVIEW with the updated code. Repeat until approved.
+
+**Human approves?**
+- Commit now, as its own commit covering just this test + its minimal implementation.
+- Do not batch multiple RED-GREEN-REVIEW cycles into one commit.
+- Do not commit "while waiting" for approval, and do not pre-emptively commit assuming approval.
+
+<Good>
+```
+Agent: RED — added test `rejects_empty_email`, confirmed it fails with
+       "expected 'Email required', got undefined".
+       GREEN — added the minimal check in submitForm. All tests pass.
+       Here's the diff: [diff]. Look OK to commit?
+Human: yes, looks good
+Agent: [commits] Committed as a1b2c3d.
+```
+</Good>
+
+<Bad>
+```
+Agent: [writes test, implementation, and 3 more test/implementation pairs,
+        then commits all of it at once] Done, all tests pass and pushed.
+```
+No review checkpoint, multiple cycles batched, no chance to redirect mid-way
+</Bad>
 
 ### Repeat
 
-Next failing test for next feature.
+Only start the next RED test after the current cycle's commit exists. Never queue up multiple uncommitted GREEN implementations.
 
 ## Good Tests
 
@@ -284,8 +318,11 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 - "Already spent X hours, deleting is wasteful"
 - "TDD is dogmatic, I'm being pragmatic"
 - "This is different because..."
+- Committing before the human reviewed the GREEN code
+- Batching several RED-GREEN cycles into one commit
+- Starting the next test before the current cycle is committed
 
-**All of these mean: Delete code. Start over with TDD.**
+**All of these mean: Delete code (or revert the commit). Start over with TDD.**
 
 ## Example: Bug Fix
 
@@ -321,8 +358,10 @@ $ npm test
 PASS
 ```
 
-**REFACTOR**
-Extract validation for multiple fields if needed.
+**REVIEW**
+Show the human the diff. They may ask to extract validation for multiple
+fields — if so, apply it, re-verify green, and return to REVIEW before
+committing.
 
 ## Verification Checklist
 
@@ -336,6 +375,9 @@ Before marking work complete:
 - [ ] Output pristine (no errors, warnings)
 - [ ] Tests use real code (mocks only if unavoidable)
 - [ ] Edge cases and errors covered
+- [ ] GREEN code was shown to the human partner for review
+- [ ] Human explicitly approved before anything was committed
+- [ ] This cycle is committed on its own, before starting the next RED test
 
 Can't check all boxes? You skipped TDD. Start over.
 
@@ -364,7 +406,9 @@ When adding mocks or test utilities, read [testing-anti-patterns.md](testing-ant
 ## Final Rule
 
 ```
-Production code → test exists and failed first
-Otherwise → not TDD
+Production code  → test exists and failed first
+Green code       → reviewed and approved by a human before commit
+Every commit     → exactly one RED-GREEN-REVIEW cycle, never batched
+Otherwise        → not TDD
 ```
 No exceptions without your human partner's permission.
